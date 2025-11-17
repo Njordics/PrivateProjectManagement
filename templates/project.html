@@ -360,20 +360,22 @@
   </main>
 
   <template id="kanban-card-template">
-      <div class="kanban-card glass" draggable="true">
+    <div class="kanban-card glass" draggable="true">
       <div class="kanban-title"></div>
       <div class="kanban-parent muted"></div>
       <div class="kanban-meta">
-        <label class="assignee-field">
-          <span>Assignee</span>
-          <select class="task-resource">
-            <option value="">Unassigned</option>
-          </select>
-        </label>
-        <label>
-          <span>Description</span>
-          <textarea class="task-desc" rows="2" placeholder="Add a short note"></textarea>
-        </label>
+        <div class="meta-summary">
+          <div class="summary-row">
+            <span class="meta-label">Assignee</span>
+            <span class="task-assignee-display pill ghost tiny">Unassigned</span>
+          </div>
+          <div class="summary-desc">
+            <span class="meta-label">Description</span>
+            <p class="task-desc-display muted small">No description</p>
+          </div>
+        </div>
+      </div>
+      <div class="kanban-footer">
         <div class="due-slot">
           <label class="due-field">
             <span>Due</span>
@@ -384,10 +386,23 @@
             <button class="pill ghost tiny set-due" type="button">Set date</button>
           </div>
         </div>
+        <button class="pill ghost tiny meta-toggle" type="button" aria-expanded="false" title="Edit task details">&#9881;</button>
       </div>
-      <div class="kanban-actions">
-        <button class="task-delete pill danger" title="Delete">✕</button>
-        <button class="task-save pill ghost">Save</button>
+      <div class="meta-panel">
+        <label class="assignee-field">
+          <span>Assignee</span>
+          <select class="task-resource">
+            <option value="">Unassigned</option>
+          </select>
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea class="task-desc" rows="3" placeholder="Add a short note"></textarea>
+        </label>
+        <div class="kanban-actions">
+          <button class="task-delete pill danger" title="Delete">?</button>
+          <button class="task-save pill ghost">Save</button>
+        </div>
       </div>
     </div>
   </template>
@@ -408,3 +423,4 @@
   </a>
 </body>
 </html>
+

@@ -56,6 +56,13 @@
     }
   }
 
+  function formatAssignee(resourceId) {
+    if (!resourceId) return "Unassigned";
+    const res = resources.find((r) => String(r.id) === String(resourceId));
+    if (res) return `${res.name} (${res.status})`;
+    return `Resource #${resourceId}`;
+  }
+
   function renderTask(task) {
     const node = cardTemplate.content.cloneNode(true);
     const card = node.querySelector(".kanban-card");
@@ -64,16 +71,33 @@
     const resourceSel = node.querySelector(".task-resource");
     const desc = node.querySelector(".task-desc");
     const due = node.querySelector(".task-due");
+    const assigneeDisplay = node.querySelector(".task-assignee-display");
+    const descDisplay = node.querySelector(".task-desc-display");
     const saveBtn = node.querySelector(".task-save");
     const deleteBtn = node.querySelector(".task-delete");
     const dueField = node.querySelector(".due-field");
     const dueEmpty = node.querySelector(".due-empty");
     const setDueBtn = node.querySelector(".set-due");
+    const metaPanel = node.querySelector(".meta-panel");
+    const metaToggle = node.querySelector(".meta-toggle");
 
     title.textContent = task.title;
     parent.textContent = task.parent_id ? `Parent #${task.parent_id}` : "";
     setResourceOptions(resourceSel, task.resource_id);
     if (desc) desc.value = task.description || "";
+    if (assigneeDisplay) assigneeDisplay.textContent = formatAssignee(task.resource_id);
+    if (descDisplay) descDisplay.textContent = (task.description || "").trim() || "No description";
+    if (resourceSel && assigneeDisplay) {
+      resourceSel.addEventListener("change", () => {
+        assigneeDisplay.textContent = formatAssignee(resourceSel.value || "");
+      });
+    }
+
+    if (desc && descDisplay) {
+      desc.addEventListener("input", () => {
+        descDisplay.textContent = desc.value.trim() || "No description";
+      });
+    }
     if (task.due_date) {
       due.value = task.due_date;
       due.classList.remove("no-due");
@@ -119,6 +143,13 @@
     });
 
     card.dataset.taskId = task.id;
+    if (metaToggle && metaPanel) {
+      metaToggle.addEventListener("click", () => {
+        const isOpen = metaPanel.classList.toggle("open");
+        metaToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+    }
+
     card.addEventListener("dragstart", () => {
       draggingTaskId = task.id;
       card.classList.add("dragging");
