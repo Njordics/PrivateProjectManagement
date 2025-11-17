@@ -12,11 +12,25 @@ DB_FILENAME = os.environ.get("PROJECT_DB", "project_manager.sqlite")
 DB_PATH = os.path.join(DATA_DIR, DB_FILENAME)
 
 
+def ensure_db_permissions():
+    """Make DB and its directory world-writable so users don't hit permission issues."""
+    try:
+        os.chmod(DATA_DIR, 0o777)
+    except OSError:
+        pass
+    if os.path.exists(DB_PATH):
+        try:
+            os.chmod(DB_PATH, 0o666)
+        except OSError:
+            pass
+
+
 def get_db():
     if "db" not in g:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         g.db = conn
+        ensure_db_permissions()
     return g.db
 
 
