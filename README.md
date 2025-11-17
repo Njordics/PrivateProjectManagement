@@ -19,5 +19,5 @@ python app.py  # starts http://127.0.0.1:5000
 - `PATCH /api/tasks/<task_id>` — update task fields
 
 ## Notes
-- Data is in-memory only; restart clears everything. Swap in a DB later as needed.
+- Data is stored in a local SQLite database in `instance/project_manager.sqlite` (ignored by git so it stays private). Override path with `PROJECT_DB=/path/to/db.sqlite`.
 - Frontend uses fetch to hit the API; no build step required.

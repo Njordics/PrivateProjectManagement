@@ -1,1 +1,2 @@
 ﻿Flask==3.0.3
+watchfiles==0.21.0

@@ -73,39 +73,28 @@
     <article class="project glass">
       <div class="project-head">
         <div>
-          <h3 class="project-title"></h3>
+          <h3 class="project-title"><a class="project-link" href="#"></a></h3>
           <p class="project-desc"></p>
         </div>
         <span class="project-id"></span>
       </div>
-      <form class="task-form form-grid" autocomplete="off">
-        <input type="hidden" name="project_id" />
-        <label>
-          <span>Task</span>
-          <input type="text" name="title" required placeholder="Add a task" />
-        </label>
-        <label>
-          <span>Due</span>
-          <input type="date" name="due_date" />
-        </label>
-        <label>
-          <span>Status</span>
-          <select name="status">
-            <option value="todo">To do</option>
-            <option value="in-progress">In progress</option>
-            <option value="done">Done</option>
-          </select>
-        </label>
-        <button type="submit" class="pill primary">Add Task</button>
-      </form>
-      <div class="task-table">
-        <div class="task-row task-row--head">
-          <span>Task</span>
-          <span>Status</span>
-          <span>Due</span>
-          <span>Actions</span>
+      <div class="project-metrics">
+        <div class="metric">
+          <span>Tasks</span>
+          <strong class="metric-total">0</strong>
         </div>
-        <div class="task-list"></div>
+        <div class="metric">
+          <span>Done</span>
+          <strong class="metric-done">0</strong>
+        </div>
+        <div class="metric">
+          <span>To do</span>
+          <strong class="metric-todo">0</strong>
+        </div>
+        <div class="metric">
+          <span>Complete</span>
+          <strong class="metric-pct">0%</strong>
+        </div>
       </div>
     </article>
   </template>
@@ -124,5 +113,8 @@
   </template>
 
   <script src="/static/main.js"></script>
+  <a class="signature-mark" href="https://github.com/Njordics" target="_blank" rel="noreferrer noopener">
+    <img src="/static/NjordSig.png" alt="Njord signature" />
+  </a>
 </body>
 </html>
