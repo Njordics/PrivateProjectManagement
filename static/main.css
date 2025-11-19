@@ -490,9 +490,9 @@ button {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  display: grid;
-  grid-template-rows: auto auto;
-  gap: 0;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
 }
 
 .kanban-head {
@@ -504,9 +504,13 @@ button {
 
 .kanban-list {
   padding: 10px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-content: start;
+  flex: 1 1 auto;
+  align-items: stretch;
+  align-content: flex-start;
+  overflow-y: auto;
 }
 
 .kanban-list.drag-over {
