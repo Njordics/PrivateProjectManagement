@@ -1,6 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+set PORT=51001
 
 if not exist ".venv" (
     echo Creating virtual environment...
@@ -11,7 +12,7 @@ call ".venv\Scripts\activate"
 echo Installing requirements (if needed)...
 pip install -r requirements.txt  || goto :error
 
-echo Starting Project Manager on http://127.0.0.1:5000
+echo Starting Project Manager on http://127.0.0.1:51001
 python app.py
 goto :eof
 

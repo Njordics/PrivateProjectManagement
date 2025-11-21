@@ -1178,6 +1178,17 @@ button {
   padding: 0 24px 48px;
 }
 
+.kanban-fullpage.workspace {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto 40px;
+  padding: 0 32px 48px;
+}
+
+.kanban-fullpage .panel {
+  width: 100%;
+}
+
 .dashboard-page .panel {
   border-radius: 14px;
 }

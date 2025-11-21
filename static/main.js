@@ -84,7 +84,7 @@ async function renderProject(project, stats) {
   const flowSelect = node.querySelector(".flow-select");
   const flows = {
     min: `/projects/${project.id}/dashboard?flow=min`,
-    full: `/projects/${project.id}`,
+    full: `/projects/${project.id}/tool/kanban`,
   };
   const prefKey = `pm_flow_pref_${project.id}`;
   const saved = localStorage.getItem(prefKey) || "min";

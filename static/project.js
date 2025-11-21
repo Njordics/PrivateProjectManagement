@@ -565,14 +565,10 @@
     const sections = document.querySelectorAll("[data-tool]");
     sections.forEach((section) => {
       const tool = section.dataset.tool;
-      const shouldShow =
-        key === tool ||
-        (key === "kanban" && tool === "tasks") || // show task form with kanban
-        (key === "tasks" && tool === "kanban");
-      section.classList.toggle("hidden-tool", !shouldShow);
+      section.classList.toggle("hidden-tool", key !== tool);
     });
 
-    if (key === "tasks" || key === "kanban") {
+    if (key === "kanban") {
       if (window.initTasks) window.initTasks();
       if (window.initResources) window.initResources();
     } else if (key === "backlog") {

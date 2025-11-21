@@ -9,7 +9,7 @@
 <body>
   <div class="gradient-bg"></div>
 
-  <main class="workspace project-page dashboard-page">
+  <main class="workspace project-page dashboard-page{% if tool == 'kanban' %} kanban-fullpage{% endif %}">
     <section class="panel project-header">
       <div>
         <p class="eyebrow">Tool</p>
@@ -17,7 +17,7 @@
         <p class="project-desc">Focused view for this tool. Switch back to dashboard for combined flow.</p>
       </div>
       <div class="project-actions">
-        <a class="pill ghost" href="/projects/{{ project.id }}">Full Flow</a>
+        <a class="pill ghost" href="/projects/{{ project.id }}/tool/kanban">Full Flow</a>
         <a class="pill primary" href="/projects/{{ project.id }}/dashboard?flow=min">Minimized Flow</a>
       </div>
     </section>

@@ -4,7 +4,7 @@ services:
     container_name: project-manager
     user: "${UID}:${GID}"
     ports:
-      - "5000:5000"
+      - "51001:51001"
     volumes:
       - ./data:/app/instance
     restart: unless-stopped
