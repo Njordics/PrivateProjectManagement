@@ -28,7 +28,7 @@ A minimal project/task tracker built with Flask and vanilla HTML/JS. Data is sto
 
 **Docker Compose**: `docker compose up -d` then open <http://127.0.0.1:51001>
 
-**Docker CLI**: `docker build -t project-manager . && docker run -d -p 51001:51001 -v ./data:/app/instance --name project-manager project-manager`
+**Docker CLI**: `docker run -d -p 51001:51001 -v ./data:/app/instance --name forsetiflow ghcr.io/Njordics/forsetiflow:latest`
 
 Data persists in `./data` directory. See environment variables below for configuration options.
 
