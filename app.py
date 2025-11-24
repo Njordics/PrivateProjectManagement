@@ -6,12 +6,69 @@ import tempfile
 import time
 
 import requests
+from authlib.integrations.base_client.errors import OAuthError
+from authlib.integrations.flask_client import OAuth
 from flask import Flask, render_template, request, jsonify, abort, g, session, redirect, url_for
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY") or "dev-secret-key"
+
+oauth = OAuth()
+oauth.init_app(app)
+
+# oauth configuration for single sign-on providers
+OAUTH_PROVIDER_CONFIG = {
+    "google": {
+        "display_name": "Google",
+        "client_id_env": "GOOGLE_CLIENT_ID",
+        "client_secret_env": "GOOGLE_CLIENT_SECRET",
+        "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
+        "scope": "openid email profile",
+    },
+    "microsoft": {
+        "display_name": "Microsoft",
+        "client_id_env": "MICROSOFT_CLIENT_ID",
+        "client_secret_env": "MICROSOFT_CLIENT_SECRET",
+        "server_metadata_url": "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
+        "scope": "openid email profile User.Read",
+    },
+}
+AUTHENTIK_BASE_URL = os.environ.get("AUTHENTIK_BASE_URL")
+if AUTHENTIK_BASE_URL:
+    base = AUTHENTIK_BASE_URL.rstrip("/")
+    OAUTH_PROVIDER_CONFIG["authentik"] = {
+        "display_name": "Authentik",
+        "client_id_env": "AUTHENTIK_CLIENT_ID",
+        "client_secret_env": "AUTHENTIK_CLIENT_SECRET",
+        "server_metadata_url": f"{base}/application/o/.well-known/openid-configuration",
+        "scope": "openid email profile",
+    }
+AVAILABLE_OAUTH_PROVIDERS = []
+
+
+def _register_oauth_providers():
+    for name, spec in OAUTH_PROVIDER_CONFIG.items():
+        client_id = os.environ.get(spec["client_id_env"])
+        client_secret = os.environ.get(spec["client_secret_env"])
+        if not (client_id and client_secret):
+            continue
+        client_kwargs = {"scope": spec["scope"]}
+        client_kwargs.update(spec.get("client_kwargs", {}))
+        oauth.register(
+            name=name,
+            client_id=client_id,
+            client_secret=client_secret,
+            server_metadata_url=spec["server_metadata_url"],
+            client_kwargs=client_kwargs,
+        )
+        AVAILABLE_OAUTH_PROVIDERS.append(
+            {"name": name, "display_name": spec["display_name"]}
+        )
+
+
+_register_oauth_providers()
 
 # Location for the SQLite file. Defaults to a user-writable folder so clones don't hit permission errors.
 _default_home = os.path.join(os.path.expanduser("~"), ".project_manager_data")
@@ -30,12 +87,6 @@ def _int_env(name: str, default: int) -> int:
         return int(os.environ.get(name, default))
     except (TypeError, ValueError):
         return default
-
-DEFAULT_ADMIN_USERNAME = os.environ.get("DEFAULT_ADMIN_USERNAME") or "admin"
-DEFAULT_ADMIN_PASSWORD = os.environ.get("DEFAULT_ADMIN_PASSWORD") or "forseti"
-DEFAULT_ADMIN_EMAIL = os.environ.get("DEFAULT_ADMIN_EMAIL")
-DEFAULT_ADMIN_PHONE = os.environ.get("DEFAULT_ADMIN_PHONE")
-DEFAULT_ADMIN_COUNTRY = os.environ.get("DEFAULT_ADMIN_COUNTRY")
 
 AUTHY_API_KEY = os.environ.get("AUTHY_API_KEY")
 AUTHY_API_URL = os.environ.get("AUTHY_API_URL") or "https://api.authy.com/protected/json"
@@ -142,44 +193,79 @@ def check_phone_verification(phone_number: str, country_code: str, code: str) ->
         return {"success": False, "message": message}
 
 
-def ensure_default_admin_user(db):
-    if not (DEFAULT_ADMIN_PHONE and DEFAULT_ADMIN_COUNTRY):
-        return
+def _normalize_username(raw: str) -> str:
+    candidate = "".join(
+        ch for ch in (raw or "").strip().lower() if ch.isalnum() or ch in {"_", "-", "."}
+    )
+    return candidate or "user"
+
+
+def _generate_unique_username(base: str) -> str:
+    db = get_db()
+    username = base
+    suffix = 1
+    while True:
+        exists = db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
+        if not exists:
+            return username
+        username = f"{base}{suffix}"
+        suffix += 1
+
+
+def _create_user_from_oauth(email: str, display_name: str):
+    db = get_db()
+    base_username = _normalize_username(display_name or email.split("@")[0] or "user")
+    username = _generate_unique_username(base_username)
+    password_hash = generate_password_hash(secrets.token_urlsafe(64))
     try:
-        total = db.execute("SELECT COUNT(*) as total FROM users").fetchone()["total"]
-    except sqlite3.OperationalError:
-        return
-    if total:
-        return
-    password_hash = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
-    email = DEFAULT_ADMIN_EMAIL or f"{DEFAULT_ADMIN_USERNAME}@example.com"
-    try:
-        db.execute(
-            "INSERT INTO users (email, username, password_hash, phone_number, country_code, must_update_credentials) VALUES (?, ?, ?, ?, ?, 1)",
-            (email, DEFAULT_ADMIN_USERNAME, password_hash, DEFAULT_ADMIN_PHONE, DEFAULT_ADMIN_COUNTRY),
+        cur = db.execute(
+            "INSERT INTO users (email, username, password_hash, phone_number, country_code, must_update_credentials, is_admin) VALUES (?, ?, ?, ?, ?, 0, 0)",
+            (email, username, password_hash, "", ""),
         )
         db.commit()
+        inserted_id = cur.lastrowid
     except sqlite3.IntegrityError:
-        pass
-
-
-def is_default_admin_only() -> bool:
-    db = get_db()
-    try:
-        total = db.execute("SELECT COUNT(*) as total FROM users").fetchone()["total"]
-    except sqlite3.OperationalError:
-        return False
-    if total != 1:
-        return False
-    user = db.execute(
-        "SELECT username, must_update_credentials FROM users LIMIT 1"
+        return get_user_by_identifier(email)
+    return db.execute(
+        """
+        SELECT id, email, username, phone_number, country_code, must_update_credentials
+        FROM users WHERE id = ?
+        """,
+        (inserted_id,),
     ).fetchone()
-    if not user or not DEFAULT_ADMIN_USERNAME:
-        return False
-    return (
-        user["username"] == DEFAULT_ADMIN_USERNAME
-        and user["must_update_credentials"] == 1
-    )
+
+
+def _extract_oauth_user_info(client, token: dict) -> dict:
+    user_info = None
+    if token.get("id_token"):
+        try:
+            user_info = client.parse_id_token(token)
+        except (OAuthError, ValueError):
+            user_info = None
+    if not user_info:
+        try:
+            resp = client.get("userinfo")
+            resp.raise_for_status()
+            user_info = resp.json()
+        except Exception:
+            user_info = None
+    if isinstance(user_info, dict):
+        return user_info
+    return {}
+
+
+def _is_oauth_provider_enabled(provider_name: str) -> bool:
+    return any(p["name"] == provider_name for p in AVAILABLE_OAUTH_PROVIDERS)
+
+
+def _get_available_oauth_providers() -> list[dict]:
+    return list(AVAILABLE_OAUTH_PROVIDERS)
+
+
+def _get_user_count() -> int:
+    db = get_db()
+    row = db.execute("SELECT COUNT(*) as total FROM users").fetchone()
+    return row["total"] if row else 0
 
 
 def login_required(view):
@@ -291,6 +377,7 @@ def init_db():
             phone_number TEXT NOT NULL,
             country_code TEXT NOT NULL,
             must_update_credentials INTEGER NOT NULL DEFAULT 0,
+            is_admin INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -340,6 +427,10 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
+        db.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
         db.execute("UPDATE users SET must_update_credentials = 0 WHERE must_update_credentials IS NULL")
     except sqlite3.OperationalError:
         pass
@@ -365,7 +456,7 @@ def get_user_by_identifier(identifier: str):
         """
         SELECT id, email, username, password_hash, phone_number, country_code, must_update_credentials
         FROM users
-        WHERE username = ? OR email = ?
+        WHERE username = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
         """,
         (identifier, identifier),
     ).fetchone()
@@ -385,7 +476,14 @@ def get_user_by_id(user_id: int):
 
 def render_login_view():
     init_db()
-    return render_template("login.html")
+    oauth_error = session.pop("oauth_error", None)
+    allow_registration = _get_user_count() == 0
+    return render_template(
+        "login.html",
+        oauth_providers=_get_available_oauth_providers(),
+        oauth_error=oauth_error,
+        allow_registration=allow_registration,
+    )
 
 
 @app.route("/")
@@ -394,6 +492,46 @@ def login_page():
     if session.get("user_id"):
         return redirect(url_for("index_page"))
     return render_login_view()
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register_page():
+    init_db()
+    if _get_user_count():
+        return redirect(url_for("login_page"))
+    error = None
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        password = (request.form.get("password") or "").strip()
+        confirm_password = (request.form.get("confirm_password") or "").strip()
+        phone_number = (request.form.get("phone_number") or "").strip()
+        country_code = (request.form.get("country_code") or "").strip()
+
+        if not username:
+            error = "Username is required."
+        elif password != confirm_password:
+            error = "Passwords do not match."
+        elif not (password and phone_number and country_code):
+            error = "Password, phone number, and country code are required."
+        else:
+            password_hash = generate_password_hash(password)
+            db = get_db()
+            try:
+                cur = db.execute(
+                    "INSERT INTO users (email, username, password_hash, phone_number, country_code, must_update_credentials, is_admin) VALUES (?, ?, ?, ?, ?, 0, 1)",
+                    (email or None, username, password_hash, phone_number, country_code),
+                )
+                db.commit()
+                user = get_user_by_id(cur.lastrowid)
+                if user:
+                    session["user_id"] = user["id"]
+                    session.pop("needs_update", None)
+                    return redirect("/app")
+                error = "Failed to create user."
+            except sqlite3.IntegrityError:
+                error = "That username or email is already in use."
+    return render_template("register.html", error=error)
 
 
 @app.route("/app")
@@ -407,6 +545,55 @@ def index_page():
 def logout():
     session.pop("user_id", None)
     return redirect(url_for("login_page"))
+
+
+@app.route("/login/oauth/<provider>")
+def oauth_login(provider: str):
+    if not _is_oauth_provider_enabled(provider):
+        abort(404)
+    client = oauth.create_client(provider)
+    if client is None:
+        abort(404)
+    redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+    return client.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/oauth/<provider>/callback")
+def oauth_callback(provider: str):
+    if not _is_oauth_provider_enabled(provider):
+        abort(404)
+    client = oauth.create_client(provider)
+    if client is None:
+        abort(404)
+    try:
+        token = client.authorize_access_token()
+    except OAuthError as exc:
+        session["oauth_error"] = str(exc)
+        return redirect(url_for("login_page"))
+    except Exception:
+        session["oauth_error"] = "Unable to complete the external authentication flow."
+        return redirect(url_for("login_page"))
+
+    init_db()
+    user_info = _extract_oauth_user_info(client, token)
+    email = (user_info.get("email") or "").strip().lower()
+    if not email:
+        session["oauth_error"] = "External provider did not supply an email address."
+        return redirect(url_for("login_page"))
+
+    user = get_user_by_identifier(email)
+    if user is None:
+        user = _create_user_from_oauth(email, user_info.get("name") or user_info.get("preferred_username") or "")
+    if not user:
+        session["oauth_error"] = "Unable to create or load a user account."
+        return redirect(url_for("login_page"))
+
+    session["user_id"] = user["id"]
+    if user["must_update_credentials"]:
+        session["needs_update"] = True
+        return redirect("/account")
+    session.pop("needs_update", None)
+    return redirect("/app")
 
 
 @app.route("/account", methods=["GET", "POST"])
@@ -458,36 +645,6 @@ def account_page():
     )
 
 
-@app.route("/api/auth/status", methods=["GET"])
-def auth_status():
-    init_db()
-    return jsonify({"default_admin_only": is_default_admin_only()})
-
-
-@app.route("/api/auth/simple-login", methods=["POST"])
-def simple_admin_login():
-    init_db()
-    if not is_default_admin_only():
-        abort(403, "Simple admin login is disabled.")
-
-    data = request.get_json(silent=True) or {}
-    username = (data.get("username") or "").strip()
-    password = (data.get("password") or "").strip()
-    if not (username and password):
-        abort(400, "Username and password are required.")
-
-    if username != DEFAULT_ADMIN_USERNAME:
-        abort(401, "Invalid credentials.")
-
-    user = get_user_by_identifier(username)
-    if user is None or not check_password_hash(user["password_hash"], password):
-        abort(401, "Invalid credentials.")
-
-    session["user_id"] = user["id"]
-    session["needs_update"] = True
-    return jsonify({"redirect": "/account"})
-
-
 @app.route("/api/users", methods=["POST"])
 def create_user():
     init_db()
@@ -502,7 +659,10 @@ def create_user():
     password = (data.get("password") or "").strip()
     phone_number = (data.get("phone_number") or "").strip()
     country_code = (data.get("country_code") or "").strip()
-    force_update = bool(data.get("force_password_change") or data.get("force_update"))
+    custom_force = bool(data.get("force_password_change") or data.get("force_update"))
+    is_first_user = user_count == 0
+    force_update = False if is_first_user else custom_force
+    is_admin = 1 if is_first_user else 0
 
     if not (username and password and phone_number and country_code):
         abort(
@@ -513,7 +673,7 @@ def create_user():
     password_hash = generate_password_hash(password)
     try:
         cur = db.execute(
-            "INSERT INTO users (email, username, password_hash, phone_number, country_code, must_update_credentials) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO users (email, username, password_hash, phone_number, country_code, must_update_credentials, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 email or None,
                 username,
@@ -521,6 +681,7 @@ def create_user():
                 phone_number,
                 country_code,
                 int(force_update),
+                is_admin,
             ),
         )
         db.commit()

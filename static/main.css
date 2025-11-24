@@ -134,6 +134,32 @@ body {
   font-size: 13px;
 }
 
+.login-register {
+  margin-top: 12px;
+}
+
+.login-register .register-link {
+  width: 100%;
+  justify-content: center;
+}
+
+.oauth-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.oauth-buttons {
+  display: grid;
+  gap: 10px;
+}
+
+.oauth-provider {
+  justify-content: center;
+  font-weight: 600;
+  text-transform: none;
+}
+
 .login-guest {
   width: 100%;
   justify-content: center;

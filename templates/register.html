@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forseti Flow Registration</title>
+    <link rel="stylesheet" href="/static/main.css" />
+  </head>
+  <body>
+    <div class="gradient-bg"></div>
+    <a class="brand-logo" href="/">
+      <span>Forseti Flow</span>
+    </a>
+    <main class="login-page">
+      <article class="login-card">
+        <div>
+          <p class="eyebrow">Forseti Flow</p>
+          <h1>Register your workspace</h1>
+          <p class="lede">Create the first administrator account to unlock the project controls.</p>
+        </div>
+        <form class="login-form" method="post" autocomplete="off">
+          <label>
+            <span>Username</span>
+            <input type="text" name="username" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Email (optional)</span>
+            <input type="email" name="email" autocomplete="email" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="new-password" required />
+          </label>
+          <label>
+            <span>Confirm password</span>
+            <input type="password" name="confirm_password" autocomplete="new-password" required />
+          </label>
+          <label>
+            <span>Phone number</span>
+            <input type="tel" name="phone_number" autocomplete="tel" placeholder="+1 555 555 5555" required />
+          </label>
+          <label>
+            <span>Country code</span>
+            <input type="text" name="country_code" autocomplete="country" placeholder="US" required />
+          </label>
+          <button type="submit" class="pill primary">Register workspace owner</button>
+        </form>
+        <div id="register-status" class="login-status muted" aria-live="polite">
+          {{ error or "" }}
+        </div>
+        <p class="muted login-hint">
+          The first account becomes the workspace administrator and is granted automatic approval.
+        </p>
+        <a class="pill ghost login-guest" href="/login">Back to login</a>
+      </article>
+    </main>
+  </body>
+</html>

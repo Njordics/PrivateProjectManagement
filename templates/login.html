@@ -56,10 +56,31 @@
           </div>
           <button type="button" id="resend-code" class="pill ghost">Resend code</button>
         </form>
-        <div id="login-status" class="login-status muted" aria-live="polite"></div>
+        <div id="login-status" class="login-status muted" aria-live="polite">
+          {{ oauth_error or "" }}
+        </div>
         <p class="muted login-hint">
           Authy protects this workspace with two-step verification. Admins can configure numbers before you sign in.
         </p>
+        {% if oauth_providers %}
+        <div class="oauth-section">
+          <p class="muted oauth-hint">
+            Use a connected enterprise account if you prefer not to enter passwords.
+          </p>
+          <div class="oauth-buttons">
+            {% for provider in oauth_providers %}
+            <a class="pill ghost oauth-provider" href="{{ url_for('oauth_login', provider=provider['name']) }}">
+              Sign in with {{ provider['display_name'] }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if allow_registration %}
+        <div class="login-register">
+          <a class="pill ghost register-link" href="/register">Register a workspace owner</a>
+        </div>
+        {% endif %}
         <a class="pill ghost login-guest" href="/app">Continue without login</a>
       </article>
     </main>
