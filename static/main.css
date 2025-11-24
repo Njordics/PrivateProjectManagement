@@ -293,7 +293,7 @@ body {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: minmax(200px, 0.9fr) 1.6fr;
   grid-template-areas:
     "name description"
     "actions actions";
@@ -336,6 +336,7 @@ body {
 
 .form-grid .name-field {
   grid-area: name;
+  max-width: 260px;
 }
 
 .form-grid .desc-field {
