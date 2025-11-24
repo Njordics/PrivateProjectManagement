@@ -82,7 +82,7 @@ async function renderProject(project, stats) {
   node.querySelector(".metric-pct").textContent = pct;
 
   if (link) {
-    link.href = `/projects/${project.id}/tool/kanban`;
+    link.href = `/projects/${project.id}`;
   }
 
   projectsEl.appendChild(node);
