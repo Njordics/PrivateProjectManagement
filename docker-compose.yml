@@ -1,6 +1,6 @@
 services:
   project-manager:
-    build: .
+    image: ghcr.io/Njordics/forsetiflow:latest
     container_name: project-manager
     user: "${UID}:${GID}"
     ports:
