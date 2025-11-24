@@ -163,6 +163,25 @@ def ensure_default_admin_user(db):
         pass
 
 
+def is_default_admin_only() -> bool:
+    db = get_db()
+    try:
+        total = db.execute("SELECT COUNT(*) as total FROM users").fetchone()["total"]
+    except sqlite3.OperationalError:
+        return False
+    if total != 1:
+        return False
+    user = db.execute(
+        "SELECT username, must_update_credentials FROM users LIMIT 1"
+    ).fetchone()
+    if not user or not DEFAULT_ADMIN_USERNAME:
+        return False
+    return (
+        user["username"] == DEFAULT_ADMIN_USERNAME
+        and user["must_update_credentials"] == 1
+    )
+
+
 def login_required(view):
     exempt_endpoints = {"account_page", "logout"}
 
@@ -437,6 +456,36 @@ def account_page():
     return render_template(
         "account.html", user=user, error=error, requires_update=user["must_update_credentials"]
     )
+
+
+@app.route("/api/auth/status", methods=["GET"])
+def auth_status():
+    init_db()
+    return jsonify({"default_admin_only": is_default_admin_only()})
+
+
+@app.route("/api/auth/simple-login", methods=["POST"])
+def simple_admin_login():
+    init_db()
+    if not is_default_admin_only():
+        abort(403, "Simple admin login is disabled.")
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not (username and password):
+        abort(400, "Username and password are required.")
+
+    if username != DEFAULT_ADMIN_USERNAME:
+        abort(401, "Invalid credentials.")
+
+    user = get_user_by_identifier(username)
+    if user is None or not check_password_hash(user["password_hash"], password):
+        abort(401, "Invalid credentials.")
+
+    session["user_id"] = user["id"]
+    session["needs_update"] = True
+    return jsonify({"redirect": "/account"})
 
 
 @app.route("/api/users", methods=["POST"])

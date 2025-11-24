@@ -7,6 +7,7 @@
   const backButton = document.getElementById("back-to-login");
   let pendingToken = null;
   let lastCredentials = null;
+  let adminMode = false;
 
   const setStatus = (message, variant = "muted") => {
     if (!statusEl) return;
@@ -27,7 +28,9 @@
     pendingToken = null;
     verificationForm?.classList.add("hidden");
     loginForm?.classList.remove("hidden");
-    setStatus("");
+    if (!adminMode) {
+      setStatus("");
+    }
   };
 
   async function parseResponse(response) {
@@ -85,10 +88,42 @@
     }
   };
 
+  const handleSimpleLogin = async (credentials) => {
+    try {
+      setStatus("Signing in as admin…");
+      const result = await safeFetch("/api/auth/simple-login", {
+        method: "POST",
+        body: JSON.stringify({
+          username: credentials.identifier,
+          password: credentials.password,
+        }),
+      });
+      window.location.href = result.redirect || "/account";
+    } catch (err) {
+      setStatus(err.message, "error");
+    }
+  };
+
+  const loadAdminStatus = async () => {
+    try {
+      const status = await safeFetch("/api/auth/status");
+      adminMode = Boolean(status.default_admin_only);
+      if (adminMode) {
+        setStatus("Default admin detected; enter the admin username and password.");
+      }
+    } catch (err) {
+      console.info("Auth status check failed", err);
+    }
+  };
+
   loginForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     const credentials = extractCredentials();
     if (!credentials) return;
+    if (adminMode) {
+      handleSimpleLogin(credentials);
+      return;
+    }
     requestCode(credentials);
   });
 
@@ -129,4 +164,6 @@
     event.preventDefault();
     showLoginForm();
   });
+
+  loadAdminStatus();
 })();

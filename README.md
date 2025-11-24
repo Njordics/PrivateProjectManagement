@@ -52,7 +52,7 @@ Data persists in `./data` directory. See environment variables below for configu
 
 ## User setup
 
-Set `DEFAULT_ADMIN_PHONE` and `DEFAULT_ADMIN_COUNTRY` (plus optional `DEFAULT_ADMIN_EMAIL`) so the app can seed the administrator account with `DEFAULT_ADMIN_USERNAME`/`DEFAULT_ADMIN_PASSWORD` (defaults to `admin`/`forseti`). A seeded admin will receive Authy codes at that phone number and is forced to rotate the username or password on first login via `/account`. After at least one user exists, you must already be signed in (session cookie) before creating more users via `POST /api/users` using JSON such as `{ "username": "jdoe", "password": "secret", "phone_number": "1234567890", "country_code": "1", "email": "optional@example.com", "force_password_change": true }`.
+Set `DEFAULT_ADMIN_PHONE` and `DEFAULT_ADMIN_COUNTRY` (plus optional `DEFAULT_ADMIN_EMAIL`) so the app can seed the administrator account with `DEFAULT_ADMIN_USERNAME`/`DEFAULT_ADMIN_PASSWORD` (defaults to `admin`/`forseti`). When the database contains only that default admin, the login page shows a simple username/password form (no Authy) that immediately redirects to `/account` so the admin can rotate credentials. After the admin changes their username/password, the normal Authy-backed flow resumes; once any user exists you must already be signed in (session cookie) before creating more users via `POST /api/users` using JSON such as `{ "username": "jdoe", "password": "secret", "phone_number": "1234567890", "country_code": "1", "email": "optional@example.com", "force_password_change": true }`.
 
 ## Authentication flow
 
@@ -64,8 +64,10 @@ Set `DEFAULT_ADMIN_PHONE` and `DEFAULT_ADMIN_COUNTRY` (plus optional `DEFAULT_AD
 - Database file: `instance/project_manager.sqlite` (auto-created). Override with `PROJECT_DB=/path/to/db.sqlite`.
 - To reset data, stop the app and delete the SQLite file (or point `PROJECT_DB` to a new path).
 
-## API Overview
+-## API Overview
 - `POST /api/users` - register a new user (requires admin/session once a user exists)
+- `GET /api/auth/status` - check whether the default admin-only login mode is active
+- `POST /api/auth/simple-login` - sign in with username/password when only the default admin exists
 - `POST /api/auth/start` - begin Authy verification for a login attempt
 - `POST /api/auth/verify` - verify the one-time code and mint a session
 - `GET /api/projects` - list projects
